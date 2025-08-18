@@ -41,6 +41,8 @@ class SrsMultipleTcpListeners;
 class SrsHttpFlvListener;
 class SrsUdpCasterListener;
 class SrsGbListener;
+class SrsRtmpTransport;
+class SrsRtmpsTransport;
 
 // Convert signal to io,
 // @see: st-1.9/docs/notes.html
@@ -126,6 +128,8 @@ private:
     bool reuse_rtc_over_server_;
     // RTMP stream listeners, over TCP.
     SrsMultipleTcpListeners *rtmp_listener_;
+    // RTMPS stream listeners, over TCP.
+    SrsMultipleTcpListeners *rtmps_listener_;
     // HTTP API listener, over TCP. Please note that it might reuse with stream listener.
     SrsTcpListener *api_listener_;
     // HTTPS API listener, over TCP. Please note that it might reuse with stream listener.

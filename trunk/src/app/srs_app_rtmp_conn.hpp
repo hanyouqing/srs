@@ -40,6 +40,7 @@ class SrsCommonMessage;
 class SrsPacket;
 class SrsNetworkDelta;
 class ISrsApmSpan;
+class SrsSslConnection;
 
 // The simple rtmp client for SRS.
 class SrsSimpleRtmpClient : public SrsBasicRtmpClient
@@ -70,7 +71,54 @@ public:
     virtual ~SrsClientInfo();
 };
 
-// The client provides the main logic control for RTMP clients.
+// The base transport layer for RTMP connections over plain TCP.
+class SrsRtmpTransport
+{
+protected:
+    srs_netfd_t stfd_;
+    SrsTcpConnection *skt_;
+
+public:
+    SrsRtmpTransport(srs_netfd_t c);
+    virtual ~SrsRtmpTransport();
+
+public:
+    // Get the file descriptor for logging and identification
+    virtual srs_netfd_t fd();
+    // Get the appropriate I/O interface (TCP)
+    virtual ISrsProtocolReadWriter *io();
+    // Perform handshake (no-op for plain RTMP)
+    virtual srs_error_t handshake();
+    // Get transport type description for logging
+    virtual const char *transport_type();
+    // Set socket buffer size
+    virtual srs_error_t set_socket_buffer(srs_utime_t buffer_v);
+    // Set TCP nodelay option
+    virtual srs_error_t set_tcp_nodelay(bool v);
+    // Get network statistics
+    virtual int64_t get_recv_bytes();
+    virtual int64_t get_send_bytes();
+};
+
+// The SSL/TLS transport layer for RTMPS connections.
+class SrsRtmpsTransport : public SrsRtmpTransport
+{
+private:
+    SrsSslConnection *ssl_;
+
+public:
+    SrsRtmpsTransport(srs_netfd_t c);
+    virtual ~SrsRtmpsTransport();
+
+public:
+    // Get the appropriate I/O interface (SSL)
+    virtual ISrsProtocolReadWriter *io();
+    // Perform SSL handshake
+    virtual srs_error_t handshake();
+    // Get transport type description for logging
+    virtual const char *transport_type();
+};
+
 class SrsRtmpConn : public ISrsConnection, public ISrsStartable, public ISrsReloadHandler, public ISrsCoroutineHandler, public ISrsExpire
 {
     // For the thread to directly access any field of connection.
@@ -106,8 +154,7 @@ private:
     SrsClientInfo *info;
 
 private:
-    srs_netfd_t stfd;
-    SrsTcpConnection *skt;
+    SrsRtmpTransport *transport_;
     // Each connection start a green thread,
     // when thread stop, the connection will be delete by server.
     SrsCoroutine *trd;
@@ -128,7 +175,7 @@ private:
     ISrsApmSpan *span_client_;
 
 public:
-    SrsRtmpConn(SrsServer *svr, srs_netfd_t c, std::string cip, int port);
+    SrsRtmpConn(SrsServer *svr, SrsRtmpTransport *transport, std::string cip, int port);
     virtual ~SrsRtmpConn();
     // Interface ISrsResource.
 public:
